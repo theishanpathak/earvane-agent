@@ -1,0 +1,16 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: earvane-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: earvane
+      POSTGRES_PASSWORD: earvane
+      POSTGRES_DB: earvane
+    ports:
+      - "5432:5432"
+    volumes:
+      - earvane_pgdata:/var/lib/postgresql/data
+
+volumes:
+  earvane_pgdata:
