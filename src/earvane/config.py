@@ -7,12 +7,14 @@ class Settings(BaseSettings):
     SPOTIFY_CLIENT_ID: str
     SPOTIFY_CLIENT_SECRET: str
 
+    YOUTUBE_API_KEY: str
+
     #empty string for v1
     REDDIT_CLIENT_ID: str = ""
     REDDIT_CLIENT_SECRET: str = ""
     REDDIT_USER_AGENT: str = ""
 
-    YOUTUBE_API_KEY: str = ""
+   
     GENIUS_ACCESS_TOKEN: str = ""
 
     ANTHROPIC_API_KEY: str = ""
