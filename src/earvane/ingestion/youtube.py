@@ -7,22 +7,37 @@ VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels"
 
 
-def search_artist_videos(artist_name: str, max_results: int = 5) -> list[dict]:
-    """Search for an artist's recent videos on their own official content.
-    Costs 100 quota units per call — one call per artist, so keep artist
-    lists reasonably sized per run (quota budget, not a code limit)."""
+def find_artist_channel(artist_name: str) -> str | None:
+    """Search for the artist's own channel, return its channelId.
+    Costs 100 quota units. Returns None if no channel found."""
     params = {
         "key": settings.YOUTUBE_API_KEY,
         "q": artist_name,
         "part": "snippet",
+        "type": "channel",
+        "maxResults": 1,
+    }
+    response = httpx.get(SEARCH_URL, params=params)
+    response.raise_for_status()
+    items = response.json()["items"]
+    return items[0]["snippet"]["channelId"] if items else None
+
+
+def get_channel_uploads(channel_id: str, max_results: int = 5) -> list[dict]:
+    """Search only within a specific channel's own uploads, filtered to Music category.
+    Costs 100 quota units."""
+    params = {
+        "key": settings.YOUTUBE_API_KEY,
+        "channelId": channel_id,
+        "part": "snippet",
         "type": "video",
         "order": "date",
+        "videoCategoryId": "10",
         "maxResults": min(max_results, 50),
     }
     response = httpx.get(SEARCH_URL, params=params)
     response.raise_for_status()
     return response.json()["items"]
-
 
 
 def get_video_stats(video_ids: list[str]) -> list[dict]:
@@ -57,16 +72,21 @@ def get_channel_stats(channel_ids: list[str]) -> list[dict]:
     response.raise_for_status()
     return response.json()["items"]
 
-
 def collect_artist_signals(artist_names: list[str], videos_per_artist: int = 5) -> list[dict]:
-    """Given a list of artist names (e.g. from Spotify catalog data), search each
-    one individually and return per-video signal rows with view/subscriber counts."""
+    """For each artist, find their real channel, then pull only that channel's
+    own uploads — avoids blind-keyword spam entirely. Costs 200 quota units
+    per artist (channel lookup + upload lookup)"""
     all_videos = []
     artist_by_video_id = {}
 
     for artist_name in artist_names:
-        videos = search_artist_videos(artist_name, max_results=videos_per_artist)
-        for v in videos:
+        channel_id = find_artist_channel(artist_name)
+        if channel_id is None:
+            print(f"No channel found for {artist_name}, skipping")
+            continue
+
+        uploads = get_channel_uploads(channel_id, max_results=videos_per_artist)
+        for v in uploads:
             video_id = v["id"]["videoId"]
             artist_by_video_id[video_id] = artist_name
             all_videos.append(v)
@@ -77,7 +97,6 @@ def collect_artist_signals(artist_names: list[str], videos_per_artist: int = 5) 
     video_stats = get_video_stats(video_ids)
     channel_stats = get_channel_stats(channel_ids)
 
-    # index stats by id so we can look them up regardless of response order
     view_counts = {s["id"]: s["statistics"].get("viewCount", "n/a") for s in video_stats}
     sub_counts = {s["id"]: s["statistics"].get("subscriberCount", "n/a") for s in channel_stats}
 
@@ -98,9 +117,7 @@ def collect_artist_signals(artist_names: list[str], videos_per_artist: int = 5) 
     return signals
 
 
-
 if __name__ == "__main__":
-    # test seed list — Phase 2+ will wire this to real Spotify catalog output
     test_artists = ["Ariana Grande", "Ella Langley", "STELLA LEFTY"]
 
     signals = collect_artist_signals(test_artists, videos_per_artist=3)
