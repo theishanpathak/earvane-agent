@@ -1,6 +1,7 @@
 import httpx
 
 from earvane.config import settings
+from earvane.storage.queries import get_or_create_artist
 
 SEARCH_URL = "https://api.genius.com/search"
 
@@ -27,6 +28,7 @@ def extract_song_metadata(hits: list[dict]) -> list[dict]:
         signals.append({
             "song_title": result["title"],
             "artist_name": result["primary_artist"]["name"],
+            "genius_artist_id": result["primary_artist"]["id"],
             "release_date": result.get("release_date_for_display", "unknown"),
             "genius_url": result["url"],
         })
@@ -56,5 +58,6 @@ if __name__ == "__main__":
     print(f"Collected {len(signals)} metadata signals\n")
 
     for s in signals:
-        print(f"{s['artist_name']} — {s['song_title']} ({s['release_date']})")
-        print(f"    {s['genius_url']}\n")
+        artist_id = get_or_create_artist(s['artist_name'], genius_id=s['genius_artist_id'])
+        print(f"{s['artist_name']} — artist_id: {artist_id}, genius_id: {s['genius_artist_id']}")
+        

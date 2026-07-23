@@ -3,6 +3,7 @@ import httpx
 import time
 
 from earvane.config import settings
+from earvane.storage.queries import get_or_create_artist
 
 TOKEN_URL="https://accounts.spotify.com/api/token"
 SEARCH_URL = "https://api.spotify.com/v1/search"
@@ -92,4 +93,6 @@ if __name__ == "__main__":
 
     print(f"Found {len(tracks)} tracks, {len(signals)} artist-track catalog signals\n")
     for s in signals:
-        print(f"{s['artist_name']} — {s['track_name']} ({s['release_date']})")
+        # print(f"{s['artist_name']} — {s['track_name']} ({s['release_date']})")
+        artist_id = get_or_create_artist(s['artist_name'], spotify_id=s['artist_id'])
+        print(f"{s['artist_name']} — artist_id: {artist_id}")

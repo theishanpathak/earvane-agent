@@ -1,5 +1,7 @@
 import httpx
 
+from earvane.storage.queries import get_or_create_artist, insert_signal
+
 SEARCH_URL = "https://api.deezer.com/search/artist"
 
 def search_artist(artist_name: str) -> dict | None:
@@ -51,4 +53,7 @@ if __name__ == "__main__":
     print(f"Collected {len(signals)} fan signals\n")
 
     for s in signals:
-        print(f"{s['artist_name']} — {s['nb_fan']:,} fans")
+        # print(f"{s['artist_name']} — {s['nb_fan']:,} fans")
+        artist_id = get_or_create_artist(s['artist_name'], deezer_id=s['deezer_id'])
+        insert_signal(artist_id, 'deezer', 'nb_fan', s['nb_fan'], source_ref=s['deezer_url'])
+

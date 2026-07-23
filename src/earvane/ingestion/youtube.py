@@ -1,41 +1,76 @@
 import httpx
 
 from earvane.config import settings
+from earvane.storage.queries import insert_signal, get_or_create_artist
 
 SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels"
 
 
+FAN_CHANNEL_KEYWORDS = ["fan", "fans", "lover", "edits", "tribute", "cover"]
+
+
 def find_artist_channel(artist_name: str) -> str | None:
-    """Search for the artist's own channel, return its channelId.
-    Costs 100 quota units. Returns None if no channel found."""
+    """Search for the artist's channel among top candidates. Filters out
+    obvious fan/tribute channels by name, then picks the highest-subscriber
+    match among what's left — falling back to a '- Topic' auto-generated
+    channel if that's the only legitimate option."""
     params = {
         "key": settings.YOUTUBE_API_KEY,
         "q": artist_name,
         "part": "snippet",
         "type": "channel",
-        "maxResults": 1,
+        "maxResults": 5,
     }
     response = httpx.get(SEARCH_URL, params=params)
     response.raise_for_status()
-    items = response.json()["items"]
-    return items[0]["snippet"]["channelId"] if items else None
+    candidates = response.json()["items"]
 
+    if not candidates:
+        return None
+
+    # filter out obvious fan/tribute channels by title
+    legit_candidates = [
+        c for c in candidates
+        if not any(kw in c["snippet"]["title"].lower() for kw in FAN_CHANNEL_KEYWORDS)
+    ]
+
+    if not legit_candidates:
+        return None  # nothing legitimate found at all
+
+    candidate_ids = [c["snippet"]["channelId"] for c in legit_candidates]
+    stats = get_channel_stats(candidate_ids)
+
+    if not stats:
+        return candidate_ids[0]
+
+    best = max(stats, key=lambda s: int(s["statistics"].get("subscriberCount", 0)))
+    return best["id"]
 
 def get_channel_uploads(channel_id: str, max_results: int = 5) -> list[dict]:
-    """Search only within a specific channel's own uploads, filtered to Music category.
-    Costs 100 quota units."""
-    params = {
+    """Search within a specific channel's own uploads, preferring the Music
+    category filter but falling back to unfiltered if that returns nothing —
+    some smaller/indie channels don't have uploads categorized as Music."""
+    base_params = {
         "key": settings.YOUTUBE_API_KEY,
         "channelId": channel_id,
         "part": "snippet",
         "type": "video",
         "order": "date",
-        "videoCategoryId": "10",
         "maxResults": min(max_results, 50),
     }
-    response = httpx.get(SEARCH_URL, params=params)
+
+    params_with_category = {**base_params, "videoCategoryId": "10"}
+    response = httpx.get(SEARCH_URL, params=params_with_category)
+    response.raise_for_status()
+    items = response.json()["items"]
+
+    if items:
+        return items
+
+    # fallback: no Music-categorized results, try without the category filter
+    response = httpx.get(SEARCH_URL, params=base_params)
     response.raise_for_status()
     return response.json()["items"]
 
@@ -124,5 +159,8 @@ if __name__ == "__main__":
     print(f"Collected {len(signals)} signals\n")
 
     for s in signals:
-        print(f"[{s['artist_name']}] {s['video_title']}")
-        print(f"    views: {s['view_count']}, subscribers: {s['subscriber_count']}\n")
+        # print(f"[{s['artist_name']}] {s['video_title']}")
+        # print(f"    views: {s['view_count']}, subscribers: {s['subscriber_count']}\n")
+        artist_id = get_or_create_artist(canonical_name=s['artist_name'], youtube_channel_id=s['channel_id'])
+        insert_signal(artist_id, "youtube", "view_count", s['view_count'], source_ref=s['video_id'])
+        insert_signal(artist_id, "youtube", "subscriber_count", s['subscriber_count'], source_ref=s['video_id'])
