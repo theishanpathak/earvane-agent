@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     YOUTUBE_API_KEY: str
 
     GENIUS_ACCESS_TOKEN: str
+    
+    OPENAI_API_KEY: str
 
     #empty string for v1
     REDDIT_CLIENT_ID: str = ""
