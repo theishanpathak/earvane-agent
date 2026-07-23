@@ -3,13 +3,15 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS artists (
     id SERIAL PRIMARY KEY,
     canonical_name TEXT NOT NULL,
+    name_key TEXT NOT NULL,
     spotify_id TEXT,
     deezer_id TEXT,
     genius_id TEXT,
+    youtube_channel_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE artists ADD CONSTRAINT unique_canonical_name UNIQUE (canonical_name);
+ALTER TABLE artists ADD CONSTRAINT unique_name_key UNIQUE (name_key);
 
 CREATE TABLE IF NOT EXISTS signals (
     id SERIAL PRIMARY KEY,
@@ -17,8 +19,10 @@ CREATE TABLE IF NOT EXISTS signals (
     source TEXT NOT NULL,
     metric_name TEXT NOT NULL,
     value NUMERIC NOT NULL,
+    source_ref TEXT,
     collected_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 
 CREATE TABLE IF NOT EXISTS embeddings (
     id SERIAL PRIMARY KEY,
