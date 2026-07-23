@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS embeddings (
     embedding VECTOR(1536) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE embeddings ADD CONSTRAINT unique_embedding_content UNIQUE (artist_id, source, content);
 
 CREATE TABLE IF NOT EXISTS briefs (
     id SERIAL PRIMARY KEY,

@@ -16,8 +16,33 @@ def embed_text(text: str) -> list[float]:
     return response.json()["data"][0]["embedding"]
 
 
+
+def content_already_embedded(artist_id: int, source: str, content: str) -> bool:
+    """Check if this exact chunk was already embedded for this artist,
+    to avoid paying for and storing duplicate embeddings."""
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1 FROM embeddings
+                WHERE artist_id = %s AND source = %s AND content = %s
+                LIMIT 1
+                """,
+                (artist_id, source, content),
+            )
+            return cur.fetchone() is not None
+
+        
+
 def insert_embedding(artist_id: int, source: str, content: str) -> None:
-    """Embed a piece of grounding text and store it, linked to an artist."""
+    """Embed a piece of grounding text and store it, linked to an artist.
+    Skips if this exact content was already embedded — avoids duplicate
+    rows and wasted OpenAI calls on repeat ingestion runs."""
+    if content_already_embedded(artist_id, source, content):
+        print(f"  [embed] Skipping duplicate content for artist_id={artist_id}")
+        return
+    
     vector = embed_text(content)
     with get_connection() as conn:
         with conn.cursor() as cur:
