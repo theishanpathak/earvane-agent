@@ -6,8 +6,10 @@ SEARCH_URL = "https://api.deezer.com/search/artist"
 
 def search_artist(artist_name: str) -> dict | None:
     """Search Deezer for an artist by name. No auth required.
-    Returns the highest-fan-count match to avoid picking duplicate/impersonator
-    profiles, or None if no results found."""
+    Returns the highest-fan-count match among results whose name actually
+    matches the query, or None if nothing legitimately matches — Deezer's
+    search can return loosely-related results when there's no real match."""
+
     params = {"q": artist_name}
     response = httpx.get(SEARCH_URL, params=params)
     response.raise_for_status()
@@ -16,7 +18,16 @@ def search_artist(artist_name: str) -> dict | None:
     if not results:
         return None
 
-    return max(results, key=lambda artist: artist["nb_fan"])
+    query_lower = artist_name.strip().lower()
+    verified = [
+        r for r in results
+        if query_lower in r["name"].strip().lower() or r["name"].strip().lower() in query_lower
+    ]
+
+    if not verified:
+        return None 
+
+    return max(verified, key=lambda artist: artist["nb_fan"])
 
 
 def extract_fan_signal(artist_name: str) -> dict | None:
