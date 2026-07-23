@@ -28,8 +28,15 @@ def get_or_create_artist(
             artist_id = cur.fetchone()[0]
             conn.commit()
             return artist_id
+        
 
-def insert_signal(artist_id: int, source: str, metric_name: str, value: float, source_ref: str | None = None) -> None:
+def insert_signal(
+        artist_id: int, 
+        source: str, 
+        metric_name: str, 
+        value: float, 
+        source_ref: str | None = None
+) -> None:
     """Insert one raw signal snapshot. Always a fresh row — never overwrites,
     since repeated snapshots over time are what let us compute velocity later."""
     with get_connection() as conn:
@@ -43,3 +50,39 @@ def insert_signal(artist_id: int, source: str, metric_name: str, value: float, s
             )
             conn.commit()
 
+def get_recent_signals(artist_id: int, limit: int = 20) -> list[dict]:
+    """Fetch this artist's most recent raw signal rows, newest first."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT source, metric_name, value, collected_at
+                FROM signals
+                WHERE artist_id = %s
+                ORDER BY collected_at DESC
+                LIMIT %s
+                """,
+                (artist_id, limit),
+            )
+            rows = cur.fetchall()
+    return [
+        {"source": r[0], "metric_name": r[1], "value": float(r[2]), "collected_at": str(r[3])}
+        for r in rows
+    ]
+
+def get_recent_embeddings_text(artist_id: int, limit: int = 10) -> list[str]:
+    """Fetch this artist's most recent grounding text chunks (content only, not vectors)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT content
+                FROM embeddings
+                WHERE artist_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (artist_id, limit),
+            )
+            rows = cur.fetchall()
+    return [r[0] for r in rows]
