@@ -54,6 +54,7 @@ def insert_embedding(artist_id: int, source: str, content: str) -> None:
                 (artist_id, source, content, vector),
             )
             conn.commit()
+            
 
 def search_similar(query: str, limit: int = 5) -> list[dict]:
     """Embed a query and find the most semantically similar stored chunks."""
@@ -74,3 +75,22 @@ def search_similar(query: str, limit: int = 5) -> list[dict]:
         {"artist_id": r[0], "source": r[1], "content": r[2], "distance": r[3]}
         for r in rows
     ]
+
+def search_similar_for_artist(artist_id: int, query: str, limit: int = 5) -> list[dict]:
+    """Like search_similar, but scoped to one artist's chunks only —
+    used by the RAG Retriever node during a graph run."""
+    query_vector = embed_text(query)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT source, content, embedding <=> %s::vector AS distance
+                FROM embeddings
+                WHERE artist_id = %s
+                ORDER BY distance
+                LIMIT %s
+                """,
+                (query_vector, artist_id, limit),
+            )
+            rows = cur.fetchall()
+    return [{"source": r[0], "content": r[1], "distance": r[2]} for r in rows]
