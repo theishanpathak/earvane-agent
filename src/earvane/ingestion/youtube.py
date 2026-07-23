@@ -1,7 +1,9 @@
 import httpx
 
 from earvane.config import settings
+from earvane.formatting import format_youtube_chunk
 from earvane.storage.queries import insert_signal, get_or_create_artist
+from earvane.storage.embed import insert_embedding
 
 SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
@@ -159,8 +161,9 @@ if __name__ == "__main__":
     print(f"Collected {len(signals)} signals\n")
 
     for s in signals:
-        # print(f"[{s['artist_name']}] {s['video_title']}")
-        # print(f"    views: {s['view_count']}, subscribers: {s['subscriber_count']}\n")
         artist_id = get_or_create_artist(canonical_name=s['artist_name'], youtube_channel_id=s['channel_id'])
         insert_signal(artist_id, "youtube", "view_count", s['view_count'], source_ref=s['video_id'])
-        insert_signal(artist_id, "youtube", "subscriber_count", s['subscriber_count'], source_ref=s['video_id'])
+        insert_signal(artist_id, "youtube", "subscriber_count", s['subscriber_count'], source_ref=s['channel_id'])
+        content = format_youtube_chunk(s)
+        insert_embedding(artist_id, "youtube", content)
+        print(f"Succesfullly inserted the emedding for {content}")

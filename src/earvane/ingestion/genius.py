@@ -1,7 +1,9 @@
 import httpx
 
+from earvane.formatting import format_genius_chunk
 from earvane.config import settings
 from earvane.storage.queries import get_or_create_artist
+from earvane.storage.embed import insert_embedding
 
 SEARCH_URL = "https://api.genius.com/search"
 
@@ -60,4 +62,6 @@ if __name__ == "__main__":
     for s in signals:
         artist_id = get_or_create_artist(s['artist_name'], genius_id=s['genius_artist_id'])
         print(f"{s['artist_name']} — artist_id: {artist_id}, genius_id: {s['genius_artist_id']}")
-        
+        content = format_genius_chunk(s)
+        insert_embedding(artist_id, "genius", content)
+        print(f"Succesfullly inserted the emedding for {content}")
