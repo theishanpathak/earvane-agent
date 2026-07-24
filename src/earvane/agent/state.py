@@ -18,3 +18,6 @@ class ArtistState(BaseModel):
     velocity: dict[str, float] = {}        # filled by Relevance Scorer — one entry per metric
     novelty_score: float | None = None     # filled by Relevance Scorer — LLM judgment
     novelty_reasoning: str | None = None   # filled by Relevance Scorer — LLM's explanation
+
+    retrieved_chunks: list[str] = []         # filled by RAG Retriever
+    

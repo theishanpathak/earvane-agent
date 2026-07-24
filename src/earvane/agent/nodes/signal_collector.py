@@ -11,4 +11,3 @@ def signal_collector_node(state: ArtistState) -> dict:
         "signals": [SignalRecord(**s) for s in raw_signals],
         "grounding_text": grounding,
     }
-
