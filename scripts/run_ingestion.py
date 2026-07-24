@@ -39,15 +39,19 @@ def run_youtube_stage(artist_names: list[str], videos_per_artist: int = 3) -> No
     signals = youtube.collect_artist_signals(artist_names, videos_per_artist=videos_per_artist)
     print(f"Collected {len(signals)} video signals\n")
 
+    seen_channels = set()
     for s in signals:
-        
         if s['view_count'] == "n/a" or s['subscriber_count'] == "n/a":
             print(f"  [youtube] SKIPPED {s['artist_name']} — {s['video_title'][:40]} (missing stats)")
             continue
 
         artist_id = get_or_create_artist(s['artist_name'], youtube_channel_id=s['channel_id'])
         insert_signal(artist_id, "youtube", "view_count", s['view_count'], source_ref=s['video_id'])
-        insert_signal(artist_id, "youtube", "subscriber_count", s['subscriber_count'], source_ref=s['channel_id'])
+
+        if s['channel_id'] not in seen_channels:
+            insert_signal(artist_id, "youtube", "subscriber_count", s['subscriber_count'], source_ref=s['channel_id'])
+            seen_channels.add(s['channel_id'])
+            
         content = format_youtube_chunk(s)
         insert_embedding(artist_id, "youtube", content)
         print(f"  [youtube] {s['artist_name']} — {s['video_title'][:40]}... "
